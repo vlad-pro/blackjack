@@ -17,13 +17,39 @@ func (h Hand) String() string {
 	return strings.Join(strs, ", ")
 }
 
+func (h Hand) DealerString() string {
+	return h[0].String() + ", ***Hidden***"
+}
+
 func main() {
 	cards := deck.New(deck.Deck(3), deck.Shuffle)
 	var card deck.Card
-	for i := 0; i < 10; i++ {
-		card, cards = cards[0], cards[1:]
-		fmt.Println(card)
+	var player, dealer Hand
+	for i := 0; i < 2; i++ {
+		for _, hand := range []*Hand{&player, &dealer} {
+			card, cards = draw(cards)
+			*hand = append(*hand, card)
+		}
 	}
-	var h Hand = cards[0:3]
-	fmt.Println(h)
+
+	var input string
+	for input != "s" {
+		fmt.Println("Player:", player)
+		fmt.Println("Dealer:", dealer.DealerString())
+		fmt.Println("What will you do? (h)it, (s)tand")
+		fmt.Scanf("%s\n", &input)
+		switch input {
+		case "h":
+			card, cards = draw(cards)
+			player = append(player, card)
+
+		}
+	}
+	fmt.Println("==FINAL HANDS==")
+	fmt.Println("Player:", player)
+	fmt.Println("Dealer:", dealer)
+}
+
+func draw(cards []deck.Card) (deck.Card, []deck.Card) {
+	return cards[0], cards[1:]
 }
