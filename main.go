@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gophercises/deck"
@@ -54,52 +55,96 @@ func Shuffle(gs Gamestate) Gamestate {
 	return ret
 }
 
+func Deal(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	ret.Player = make(Hand, 0, 5)
+	ret.Dealer = make(Hand, 0, 5)
+	var card deck.Card
+	for i := 0; i < 2; i++ {
+		card, ret.Deck = draw(ret.Deck)
+		ret.Player = append(ret.Player, card)
+		card, ret.Deck = draw(ret.Deck)
+		ret.Dealer = append(ret.Dealer, card)
+	}
+	ret.State = StatePlayerTurn
+	return ret
+}
+
+func Stand(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	ret.State++
+	return ret
+}
+
+func Hit(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	hand := ret.Currentplayer()
+	var card deck.Card
+	card, ret.Deck = draw(ret.Deck)
+	*hand = append(*hand, card)
+	if hand.Score() > 21 {
+		return Stand(ret)
+	}
+	return ret
+}
+
+func EndHand(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	pScore, dScore := ret.Player.Score(), ret.Dealer.Score()
+	fmt.Println("==FINAL HANDS==")
+	fmt.Println("Player:", ret.Player, "\nScore:", pScore)
+	fmt.Println("Dealer:", ret.Dealer, "\nScore:", dScore)
+	switch {
+	case pScore > 21:
+		fmt.Println("You busted!")
+	case dScore > 21:
+		fmt.Println("Dealer busted!")
+	case pScore > dScore:
+		fmt.Println("You win!")
+	case dScore > pScore:
+		fmt.Println("You lose")
+	case dScore == pScore:
+		fmt.Println("Draw")
+	}
+	fmt.Println()
+
+	ret.Player = nil
+	ret.Dealer = nil
+	return ret
+}
+
 func main() {
-	// cards := deck.New(deck.Deck(3), deck.Shuffle)
-	// var gs Gamestate
-	// gs.Deck = deck.New(deck.Deck(3), deck.Shuffle)
-	// var card deck.Card
-	// var player, dealer Hand
-	// for i := 0; i < 2; i++ {
-	// 	for _, hand := range []*Hand{&player, &dealer} {
-	// 		card, cards = draw(cards)
-	// 		*hand = append(*hand, card)
-	// 	}
-	// }
 
-	// var input string
-	// for input != "s" {
-	// 	fmt.Println("Player:", player)
-	// 	fmt.Println("Dealer:", dealer.DealerString())
-	// 	fmt.Println("What will you do? (h)it, (s)tand")
-	// 	fmt.Scanf("%s\n", &input)
-	// 	switch input {
-	// 	case "h":
-	// 		card, cards = draw(cards)
-	// 		player = append(player, card)
+	var gs Gamestate
+	gs = Shuffle(gs)
 
-	// 	}
-	// }
-	// for dealer.Score() <= 16 || (dealer.Score() == 17 && dealer.MinScore() != 17) {
-	// 	card, cards = draw(cards)
-	// 	dealer = append(dealer, card)
-	// }
-	// pScore, dScore := player.Score(), dealer.Score()
-	// fmt.Println("==FINAL HANDS==")
-	// fmt.Println("Player:", player, "\nScore:", pScore)
-	// fmt.Println("Dealer:", dealer, "\nScore:", dScore)
-	// switch {
-	// case pScore > 21:
-	// 	fmt.Println("You busted!")
-	// case dScore > 21:
-	// 	fmt.Println("Dealer busted!")
-	// case pScore > dScore:
-	// 	fmt.Println("You win!")
-	// case dScore > pScore:
-	// 	fmt.Println("You lose")
-	// case dScore == pScore:
-	// 	fmt.Println("Draw")
-	// }
+	for i := 0; i < 7; i++ {
+		gs = Deal(gs)
+
+		var input string
+		for gs.State == StatePlayerTurn {
+			fmt.Println("Player:", gs.Player)
+			fmt.Println("Dealer:", gs.Dealer.DealerString())
+			fmt.Println("What will you do? (h)it, (s)tand")
+			fmt.Scanf("%s\n", &input)
+			switch input {
+			case "h":
+				gs = Hit(gs)
+			case "s":
+				gs = Stand(gs)
+			default:
+				fmt.Println("Invaling option:", input)
+			}
+		}
+		for gs.State == StateDealerTurn {
+			if gs.Dealer.Score() <= 16 || (gs.Dealer.Score() == 17 && gs.Dealer.MinScore() != 17) {
+				gs = Hit(gs)
+			} else {
+				gs = Stand(gs)
+			}
+		}
+		gs = EndHand(gs)
+	}
 }
 
 func draw(cards []deck.Card) (deck.Card, []deck.Card) {
@@ -132,10 +177,11 @@ func (gs *Gamestate) Currentplayer() *Hand {
 	}
 }
 
+// Important to do deep copy to have a proper copied slice
 func clone(gs Gamestate) Gamestate {
 	ret := Gamestate{
 		Deck:   make([]deck.Card, len(gs.Deck)),
-		Turn:   gs.Turn,
+		State:  gs.State,
 		Player: make(Hand, len(gs.Player)),
 		Dealer: make(Hand, len(gs.Dealer)),
 	}
